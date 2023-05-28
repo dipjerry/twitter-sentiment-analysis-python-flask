@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="./style.css">
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+      crossorigin="anonymous"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.0.1/wordcloud2.min.js"></script>
+    <script src="https://unpkg.com/chart.js@4"></script>
+    <script src="https://unpkg.com/chartjs-chart-wordcloud@4"></script>
+    <script
+      type="text/javascript"
+      src="https://www.gstatic.com/charts/loader.js"
+    ></script>
+    <title>Sentiment Analysis</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1 align="center">Sentiment Analysis <span id="for"></span></h1>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <form
+            class="form-inline justify-content-center"
+            action="#"
+            id="tweet"
+          >
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Enter keyword"
+              id="keyword"
+              required
+              style="margin-right: 1%;"
+            />
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </form>
+        </div>
+      </div>
+      <div id="hr"></div>
+      <div id="sp"></div>
+      <div class="row">
+        <div class="col-sm-6">
+          <div id="sen">
+            <div id="schart"></div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div id="lan">
+            <div id="lchart"></div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div id="wordcloud-container"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div id="tweets">
+            <div id="tweet_heading"></div>
+            <div id="tweet_body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script
+      src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+      integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+      integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+      integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script>
+      google.charts.load("current", {
+        packages: ["corechart"]
+      });
+      var url = "http://127.0.0.1:5000/?query=";
+      var positive,
+        negative,
+        neutral = 0;
+      $("#tweet").submit(function(e) {
+        e.preventDefault();
+        var spinner_html ="<div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div><div class='half-circle'></div>";
+        var keyword = $('#keyword')[0].value;
+        if (keyword.length > 0) {
+          $("#schart").html("");
+          $("#lchart").html("");
+          $("#tweet_heading").html("");
+          $("#tweet_body").html("");
+          $('#wordcloud-container').html("");
+          $("#sp").html(spinner_html);
+          var u = url + keyword;
+          $.ajax({
+            url: u,
+            success: function(response) {
+              $("#for").html("for " + keyword);
+              $("#hr").html("<hr/>");
+              positive = response["Sentiment"]["positive"];
+              negative = response["Sentiment"]["negative"];
+              neutral = response["Sentiment"]["neutral"];
+              $("#sp").html('');
+              schart(positive, negative, neutral);
+              language_chart(response["Languages"]);
+              dispalyWordArt(response["wordlist"]);
+              //console.log(response["Tweets"]);
+              tweets(response["Tweets"]);
+              console.log(response["Tweets"])
+             // wordlist(response["wordlist"]);
+            }
+          });
+        }
+      });
+      function schart(pos, neg, neu) {
+        var data = google.visualization.arrayToDataTable([
+          ["Sentiment", "Value"],
+          ["Positive", pos],
+          ["Negative", neg],
+          ["Neutral", neu]
+        ]);
+        var options = {
+          title: "Sentiment Analysis"
+        };
+        var chart = new google.visualization.PieChart(
+          document.getElementById("schart")
+        );
+        chart.draw(data, options);
+      }
+      function language_chart(lang_data) {
+        console.log(lang_data);
+        lang_obj = JSON.parse(JSON.stringify(lang_data));
+        var data = new google.visualization.DataTable();
+        data.addColumn("string", "Language");
+        data.addColumn("number", "Count");
+        var lData = [];
+        for (let key in lang_obj) {
+          if (lang_obj.hasOwnProperty(key)) {
+            lData.push([key, lang_obj[key]]);
+          }
+        }
+        data.addRows(lData);
+        var options = {
+          title: "Language Analysis"
+        };
+        var chart = new google.visualization.PieChart(
+          document.getElementById("lchart")
+        );
+        chart.draw(data, options);
+      }
+      function dispalyWordArt(wordcloud){
+        var img = new Image();
+img.src = './flask-server/img/'+wordcloud;
+document.getElementById('wordcloud-container').append(img);
+      }
+      function tweets(tweets) {
+        console.log(tweets);
+        $("#tweet_heading").html('<hr/><h1 align="center">Source Tweets </h1>');
+        var id = 0;
+        $.each(tweets, function(key, value) {
+          id = id + 1;
+          pid = "page" + id;
+          var twt =
+            '<div class="tw-block-parent id' +
+            '="' +
+            pid +
+            '"><div class="timeline-TweetList-tweet"> <div class="timeline-Tweet"><div class="timeline-Tweet-brand"><div class="Icon Icon--twitter"></div> </div><div class="timeline-Tweet-author"><div class="TweetAuthor"><a class="TweetAuthor-link" href="' +
+            "https://twitter.com/" +
+            tweets[key]["screen_name"] +
+            '" target="_blank"></a><span class="TweetAuthor-avatar"><div class="Avatar"><img src="' +
+            tweets[key]["profile_image"] +
+            '"/></div></span><span class="TweetAuthor-name">' +
+            tweets[key]["username"] +
+            '</span><span class="TweetAuthor-screenName">' +
+            tweets[key]["screen_name"] +
+            '</span></div></div><div class="timeline-Tweet-text"><a href="' +
+            tweets[key]["url"] +
+            '" target="_blank"</a>' +
+            tweets[key]["text"] +
+            '</div><div class="timeline-Tweet-metadata"><span class="timeline-Tweet-timestamp">' +
+            tweets[key]["date"] +
+            "</span></div></div></div></div></li>";
+          $("#tweet_body").append(twt);
+          $("#tweet_body").append(
+            '<ul id="pagination-demo" class="pagination-lg pull-right">'
+          );
+        });
+      }
+    </script>
+    <script src="https://www.jqueryscript.net/demo/Easy-Any-Content-Pagination-Plugin-jQuery-Paginate-js/jquery.paginate.js"></script>
+  </body>
+</html>

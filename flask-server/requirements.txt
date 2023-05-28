@@ -1,0 +1,9 @@
+Flask
+Flask-RESTful
+tweepy
+textblob
+Flask-Cors
+nltk
+wordcloud
+pymongo
+flask_cors
