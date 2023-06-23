@@ -10,17 +10,31 @@ from bson import json_util
 import time
 import json
 import copy
+
+from functools import wraps
+
+import hashlib
+import jwt
+
 stopwords = set(stopwords.words('english'))
 # from flask_images import Images
 # app = Flask(__name__)
 # images = Images(app)
 client = MongoClient('mongodb://localhost:27017/')
+
 db = client['twitter']
+
+userDb = client['user']
+
 # Twitter API Credentials
 consumer_key = 'Qbf72GnBptGZ8TTWTo0Y8AyVd'
 consumer_secret = 'Tpv5fTNy8MHfgM7jPCuopGUFvTQLEG7wzZc03ZYIGUaTOE32Q3'
 access_token = '1584924957716676608-lsu78tHONtzOlGlzqni76K4pMkXEiN'
 access_token_secret = 'kMKd5ybRIWq9WgB7GBO62BWGOwSqYJmgSYYd6lvURj44S'
+
+SECRET_KEY = 'your-secret-key'
+
+
 print(consumer_key)
 app = Flask(__name__)
 CORS(app)
@@ -30,6 +44,36 @@ t_data = {} #dictionary for twitter data
 my_json = {"tweets": []} 
 lang_data = {} #dictionary for language data
 import re
+
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization').split()[1]
+        print("🚀 ~ file: sentiment.py:53 ~ decorated:", token)
+        if not token:
+            return {'message': 'Token is missing'}, 401
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            print("🚀 ~ file: sentiment.py:59 ~ decoded_token:", decoded_token)
+            email = decoded_token.get('email')
+            print("🚀 ~ file: sentiment.py:61 ~ email:", email)
+            user = db.user.find_one({'email': email})
+            if user is None:
+                return {'message': 'User not registered'}, 404
+        except jwt.ExpiredSignatureError:
+            return {'message': 'Token has expired'}, 401
+        except jwt.InvalidTokenError:
+            return {'message': 'Invalid token'}, 401
+        except Exception as e:
+            return {'message': 'Error decoding token', 'error': str(e)}, 401
+        request.user = user
+        return f(*args, **kwargs)
+    return decorated
+
+
+
 def tweet_cleaner(x):
     text=re.sub("[@&][A-Za-z0-9_]+","", x)     # Remove mentions
     text=re.sub(r"http\S+","", text)           # Remove media links
@@ -69,6 +113,7 @@ def fetch_tweets(keyword):
         generate_lang_data(tweet.lang)
     return tweets
 def sentiment(text):
+
     analysis = TextBlob(text)
     # print(text)
     # print(analysis.sentiment)
@@ -78,6 +123,7 @@ def sentiment(text):
         return "Neutral"
     if analysis.sentiment.polarity < 0:
         return "Negative"
+    
 def filter_grammar(text):
     grammer_words =  ["a","rt","ft","an", "the", "and", "or", "but", "for", "nor", "so", "yet", "of", "in", "on", "at", "to", "from", "by", "with", "about", "as", "into", "is", "are", "was", "were", "be", "being", "been", "has", "have", "had", "will", "shall", "do", "does", "did", "can", "could", "may", "might", "must", "would", "should", "it", "he", "she", "they", "we", "you", "i", "me", "my", "your", "our", "their", "its", "his", "her", "their" , "that" , "who" , "i" , "how"]
     text = text.lower() # convert text to lowercase
@@ -94,9 +140,12 @@ def filter_grammar(text):
     sorted_words = sorted(word_counts, key=word_counts.get, reverse=True)
     return text
     # return text
+
 class QueryData(Resource):
+    @token_required
     def get(self):
         # Get all unique queries from the database
+        print("🚀 ~ file: sentiment.py:148 ~ get:", request.user["email"])
         queries = db.sentiment.distinct("query")
         # Count total available data in the database
         total_data = db.sentiment.count_documents({})
@@ -111,7 +160,6 @@ class QueryData(Resource):
             "total_data": total_data
         }
         return response
-
 def get_polarity(fetched_tweets , query , jsonFetchTweet):
     global my_json, lang_data
     pos = 0
@@ -158,7 +206,10 @@ def get_tweet(query):
     return (tweet) 
 
 class Sentiment(Resource):
+    @token_required
     def get(self):
+        print("🚀 ~ file: sentiment.py:210 ~ get:", request.user)
+        
         query = request.args.get('query')
         fetched_tweets = fetch_tweets(query)
         tweets = get_tweet(query)
@@ -172,6 +223,7 @@ class Sentiment(Resource):
         return pol
     
 class ImageResource(Resource):
+    # @token_required
     def get(self):
         image_name = request.args.get('query')
         print(image_name)
@@ -183,9 +235,74 @@ class ImageResource(Resource):
                 return str(e)
         else:
             return "Image name not provided."
+class Login(Resource):
+    def post(self):
+        # Get the request data
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        # Check if the user is registered
+        user = db.user.find_one({'email': email})
+        if user is None:
+            return {'message': 'User not registered'}, 404
+
+        # Check if the password matches
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        if user['password'] != hashed_password:
+            return {'message': 'Invalid credentials'}, 401
+        token = jwt.encode({'email': email}, SECRET_KEY, algorithm='HS256')
+        return {'message': 'Login successful' , 'code':200 , 'token':token}, 200
+# class Logout(Resource):
+#     def post(self):
+#         # Get the request data
+#         data = request.get_json()
+#         email = data.get('email')
+#         password = data.get('password')
+#         sessio
+#         # Check if the user is registered
+#         user = db.user.find_one({'email': email})
+#         if 'user_data' in session and email in session['user_data']:
+#             session['user_data'].pop(email)
+
+#         # Remove token from client-side storage
+#         # Adjust this based on how you store the token (e.g., localStorage, sessionStorage, cookies)
+#         # Replace 'userToken' with the key used to store the token
+#         response = {'message': 'Logout successful'}
+#         response.delete_cookie('userToken')
+
+#         return response, 200
+
+class Signup(Resource):
+    def post(self):
+        # Get the request data
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        # Check if the email already exists in the database
+        existing_user = db.user.find_one({'email': email})
+        if existing_user is not None:
+            return {'message': 'Email already exists'}, 409
+
+        # Hash the password
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+        # Create a new user record in the database
+        user = {
+            'email': email,
+            'password': hashed_password
+        }
+        db.user.insert_one(user)
+
+        return {'message': 'Signup successful' , 'code':200}, 201
+
+
 
 api.add_resource(ImageResource, '/image')
 api.add_resource(Sentiment, '/')
 api.add_resource(QueryData, '/get_sentiment')
+api.add_resource(Login, '/login')
+api.add_resource(Signup, '/signup')
 if __name__ == '__main__':
     app.run(debug=True)

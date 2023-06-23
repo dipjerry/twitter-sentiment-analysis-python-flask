@@ -1,6 +1,13 @@
 import React from 'react';
+import {Link, useNavigate} from 'react-router-dom';
 
 const Header = () => {
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    // Clear the token from client-side storage
+    sessionStorage.removeItem('userToken');
+    navigate('/');
+  };
   return (
     <header className="bg-gray-800 p-8">
     <div className="container mx-auto flex items-center justify-between">
@@ -18,6 +25,9 @@ const Header = () => {
           </li>
           <li>
             <a href="#" className="text-white hover:text-gray-400">Contact</a>
+          </li>
+          <li onClick={handleLogout}>
+            <span className="text-white hover:text-gray-400">logout</span>
           </li>
         </ul>
       </nav>

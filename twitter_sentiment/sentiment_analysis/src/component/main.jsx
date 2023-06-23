@@ -3,9 +3,10 @@ import {IoRefreshCircleSharp} from 'react-icons/io5';
 import axios from 'axios';
 import { Schart, LanguageChart } from './chart';
 import ReactApexChart from "react-apexcharts";
-
+import {Link, useNavigate} from 'react-router-dom';
 
 function SentimentAnalysis() {
+  const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [positive, setPositive] = useState(0);
   const [negative, setNegative] = useState(0);
@@ -116,7 +117,12 @@ function SentimentAnalysis() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.get(`http://127.0.0.1:5000/?query=${keyword}`);
+      const storedUserToken = sessionStorage.getItem("userToken");
+      const response = await axios.get(`http://127.0.0.1:5000/?query=${keyword}`, {
+        headers: {
+          Authorization: `Bearer ${storedUserToken}` 
+        }}
+        );
       const sentiment = response.data.Sentiment;
       setPositive(sentiment.positive);
       setNegative(sentiment.negative);
@@ -179,7 +185,7 @@ function SentimentAnalysis() {
             },
           },
           title: {
-            text: "Percentage by Company",
+            text: "Language data",
           },
           responsive: [
             {
@@ -223,7 +229,7 @@ function SentimentAnalysis() {
             },
           },
           title: {
-            text: "Percentage by Company",
+            text: "Sentiment",
           },
           responsive: [
             {
@@ -322,8 +328,8 @@ function SentimentAnalysis() {
           </div>
         </div>
       </div>}
-        {activeTab === 2 &&  <div className="row">
-        <div className="col-sm-6">
+        {activeTab === 2 &&  <div className="flex">
+        <div className="w-1/2">
           <div id="sen">
             <div id="schart">
             <ReactApexChart
@@ -337,9 +343,9 @@ function SentimentAnalysis() {
             </div>
           </div>
         </div>
-        <div className="col-sm-6">
-          <div id="lan">
-            <div id="lchart"></div>
+        <div className="w-1/2">
+          {/* <div id="lan"  className="w-2"> */}
+            <div id="lchart">
             <ReactApexChart
                   options={graph.options}
                   series={graph.series}
@@ -348,6 +354,7 @@ function SentimentAnalysis() {
                   width="100%"
                 />
             {/* <LanguageChart langData={langData} /> */}
+          {/* </div> */}
           </div>
         </div>
       </div>}
